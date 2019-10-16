@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1071723745041",
+    "firebase_url": "https://planner-calendar-38a02.firebaseio.com",
+    "project_id": "planner-calendar-38a02",
+    "storage_bucket": "planner-calendar-38a02.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1071723745041:android:9de2c0ec019d33c2d486b0",
+        "android_client_info": {
+          "package_name": "xyz.majorov.calendaric"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1071723745041-8e17fs9u04sk45fomjtpvtlfi4rhvk85.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "xyz.majorov.calendaric",
+            "certificate_hash": "b069c022b809c95c9e6ffe57815b0848a28ecac5"
+          }
+        },
+        {
+          "client_id": "1071723745041-ov766mk6mqa72dicr4v4bcro7ma9nrud.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzBPWxepkJuH4frhtpwzQR76mD8ouALiY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1071723745041-ov766mk6mqa72dicr4v4bcro7ma9nrud.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
