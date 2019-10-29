@@ -5,31 +5,33 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import androidx.core.view.GravityCompat
-import androidx.appcompat.app.ActionBarDrawerToggle
-import android.view.MenuItem
-import androidx.drawerlayout.widget.DrawerLayout
-import com.google.android.material.navigation.NavigationView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
+import android.telephony.PhoneNumberUtils
+import android.util.Log
 import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.View.INVISIBLE
 import android.view.View.VISIBLE
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.ColorRes
+import androidx.appcompat.app.ActionBarDrawerToggle
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.core.animation.doOnEnd
 import androidx.core.animation.doOnStart
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProviders
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.firebase.ui.auth.AuthUI
-import com.firebase.ui.auth.IdpResponse
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.navigation.NavigationView
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.kizitonwose.calendarview.model.CalendarDay
 import com.kizitonwose.calendarview.model.DayOwner
 import com.kizitonwose.calendarview.model.InDateStyle
@@ -37,8 +39,12 @@ import com.kizitonwose.calendarview.ui.DayBinder
 import com.kizitonwose.calendarview.ui.ViewContainer
 import com.kizitonwose.calendarview.utils.next
 import com.kizitonwose.calendarview.utils.yearMonth
+import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.calendar_day_layout.view.*
 import kotlinx.android.synthetic.main.content_main.*
+import kotlinx.android.synthetic.main.nav_header_main.*
+import org.dmfs.rfc5545.recur.RecurrenceRule
+import org.threeten.bp.Duration
 import org.threeten.bp.LocalDate
 import org.threeten.bp.YearMonth
 import org.threeten.bp.format.DateTimeFormatter
@@ -56,11 +62,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private val today = LocalDate.now()
     private lateinit var calendaricViewModel: CalendaricViewModel
     private var selectedDate = today
-    private lateinit var recyclerView : RecyclerView
+    private lateinit var recyclerView: RecyclerView
     private lateinit var eventAdapter: EventListAdapter
     private lateinit var firstMonth: YearMonth
     private lateinit var lastMonth: YearMonth
-    private lateinit var auth: FirebaseAuth
+    private val daysWithEvents: MutableMap<LocalDate, MutableList<EventInstance>> = mutableMapOf()
 
     private val titleDateFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
     private val titleMonthFormatter = DateTimeFormatter.ofPattern("MMMM")
@@ -68,7 +74,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private val selectedDateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy")
 
     companion object {
-        const val newTaskActivityRequestCode = 1
+        private const val newTaskActivityRequestCode = 1
+        private const val editTaskActivityRequestCode = 2
         private const val RC_SIGN_IN = 123
     }
 
@@ -78,15 +85,15 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val toolbar: Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
 
-        auth = FirebaseAuth.getInstance()
-
         val fab: FloatingActionButton = findViewById(R.id.fab)
         fab.setOnClickListener {
-            val intent = Intent(this@MainActivity, NewEventActivity::class.java)
+            val intent = Intent(this@MainActivity, EventActivity::class.java).apply {
+                action = "CREATE"
+                putExtra("selectedDate", dateToTimestamp(selectedDate.atStartOfDay()))
+            }
             startActivityForResult(intent, newTaskActivityRequestCode)
         }
-        val drawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
-        val navView: NavigationView = findViewById(R.id.nav_view)
+
         val toggle = ActionBarDrawerToggle(
             this, drawerLayout, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close
         )
@@ -96,15 +103,72 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         navView.setNavigationItemSelectedListener(this)
 
         recyclerView = findViewById(R.id.eventRecyclerView)
-        eventAdapter = EventListAdapter(this)
+        eventAdapter = EventListAdapter(this, object : OnItemClickListener {
+            override fun onItemClick(itemId: Long?) {
+                if (itemId === null) return
+                val intent = Intent(this@MainActivity, EventActivity::class.java).apply {
+                    action = "EDIT"
+                    putExtra("event_primary_key", itemId)
+                }
+                startActivityForResult(intent, editTaskActivityRequestCode)
+            }
+        })
         recyclerView.adapter = eventAdapter
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        calendaricViewModel = ViewModelProviders.of(this).get(CalendaricViewModel::class.java)
+        calendaricViewModel = ViewModelProvider(this).get(CalendaricViewModel::class.java)
 
-        calendaricViewModel.allEvents.observe(this, Observer { tasks ->
+        calendaricViewModel.allEvents.observe(this, Observer { events ->
             // Update the cached copy of the words in the adapter.
-            tasks?.let { it -> eventAdapter.setEvents(it.filter { it.startedAt?.dayOfMonth == today.dayOfMonth }) }
+            events?.let { it ->
+                val oldDays = daysWithEvents.keys.toSet()
+                daysWithEvents.clear()
+                val monthAgo = LocalDate.now().minusMonths(1)
+                for (event in it) {
+                    var start = event.startedAt?.toLocalDate() ?: continue
+                    val end = event.endedAt?.toLocalDate() ?: continue
+                    val addToList = { date: LocalDate, eventInstance: EventInstance? ->
+                        if (daysWithEvents[date] === null)
+                            daysWithEvents[date] = mutableListOf()
+                        daysWithEvents[date]?.add(eventInstance ?: EventInstance(event))
+                        calendarView.notifyDateChanged(date)
+                    }
+                    var valid = true
+                    try {
+                        RecurrenceRule(event.rrule)
+                    } catch (e: Exception) {
+                        valid = false
+                    }
+                    if (event.rrule.isNullOrBlank() || !valid) {
+                        if (start == end) {
+                            addToList(start, null)
+                        } else while (start <= end) {
+                            addToList(start, null)
+                            start = start.plusDays(1)
+                        }
+                    } else {
+                        val dif = Duration.between(start.atStartOfDay(), end.atStartOfDay()).toDays()
+                        val rule = RecurrenceRule(event.rrule)
+                        val rStart = localDateToDateTime(if (start < monthAgo) monthAgo else start)
+                        val iter = rule.iterator(rStart)
+
+                        var maxInstances = 50
+                        while (iter.hasNext() && (!rule.isInfinite || maxInstances-- > 0)) {
+                            val localStart = dateTimeToLocalDate(iter.nextDateTime())
+                            val instance = EventInstance(event)
+                            event.startedAt?.let { instance.startedAt = localStart.atTime(it.toLocalTime()) }
+                            event.endedAt?.let { instance.endedAt = localStart.plusDays(dif).atTime(it.toLocalTime()) }
+                            for (d in 0..dif) {
+                                addToList(localStart.plusDays(d), instance)
+                            }
+                        }
+                    }
+                }
+                val emptyDays = oldDays - daysWithEvents.keys
+                for (d in emptyDays)
+                    calendarView.notifyDateChanged(d)
+                updateAdapterForDate(selectedDate)
+            }
         })
 
         class DayViewContainer(view: View) : ViewContainer(view) {
@@ -135,26 +199,24 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 val dotView = container.dotView
 
                 if (day.owner == DayOwner.THIS_MONTH) {
+                    if (daysWithEvents.keys.contains(day.date)) {
+                        dotView.visibility = VISIBLE
+                    } else {
+                        dotView.visibility = INVISIBLE
+                    }
                     when (day.date) {
                         today -> {
                             textView.setTextColorResource(R.color.colorPrimaryDark)
                             textView.setBackgroundResource(R.drawable.today_bg)
                             dotView.setBackgroundResource(R.drawable.white_bg)
-                            dotView.visibility = VISIBLE
                         }
                         selectedDate -> {
                             textView.setTextColorResource(R.color.colorPrimaryDark)
                             textView.setBackgroundResource(R.drawable.select_bg)
-                            dotView.visibility = INVISIBLE
                         }
                         else -> {
                             textView.setTextColorResource(R.color.black)
                             textView.background = null
-                            if (calendaricViewModel.allEvents.value?.any { it.startedAt?.toLocalDate() == day.date } == true) {
-                                dotView.visibility = VISIBLE
-                            } else {
-                                dotView.visibility = INVISIBLE
-                            }
                         }
                     }
                 } else {
@@ -194,9 +256,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     toolbar.title = titleDateFormatter.format(firstDate)
                 } else {
                     if (firstDate.year == lastDate.year) {
-                        toolbar.title = "${titleMonthFormatter.format(firstDate)} - ${titleMonthFormatter.format(lastDate)} ${titleYearFormatter.format(firstDate)}"
+                        toolbar.title =
+                            "${titleMonthFormatter.format(firstDate)} - ${titleMonthFormatter.format(lastDate)} ${titleYearFormatter.format(
+                                firstDate
+                            )}"
                     } else {
-                        toolbar.title = "${titleYearFormatter.format(firstDate)} - ${titleYearFormatter.format(lastDate)}"
+                        toolbar.title =
+                            "${titleYearFormatter.format(firstDate)} - ${titleYearFormatter.format(lastDate)}"
                     }
                 }
             }
@@ -211,6 +277,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         calendarView.setup(firstMonth, lastMonth, firstDayOfWeek)
         calendarView.scrollToMonth(currentMonth)
 
+        if (FirebaseAuth.getInstance().currentUser === null) {
+            setDrawerMenuAuth(false)
+        } else {
+            setDataForUser()
+        }
+    }
+
+    private fun signIn() {
         // Choose authentication providers
         val providers = arrayListOf(AuthUI.IdpConfig.PhoneBuilder().build())
 
@@ -220,11 +294,35 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 .createSignInIntentBuilder()
                 .setAvailableProviders(providers)
                 .build(),
-            RC_SIGN_IN)
+            RC_SIGN_IN
+        )
+    }
+
+    private fun setDataForUser() {
+        setDrawerMenuAuth(true)
+        calendaricViewModel.syncEvents()
+
+        FirebaseAuth.getInstance().currentUser?.let {
+            val profileUpdates = UserProfileChangeRequest.Builder()
+                .setDisplayName("Vyacheslav Majorov")
+                .build()
+
+            it.updateProfile(profileUpdates)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        Log.d("lol", "User profile updated.")
+                        userNameView.text = it.displayName ?: "No name"
+                        it.phoneNumber?.let { phone ->
+                            userEmailView.text = PhoneNumberUtils.formatNumber(phone, Locale.getDefault().country)
+                        }
+//                        userImageView.setImageURI(it.photoUrl)
+                    }
+                }
+        }
     }
 
     override fun onBackPressed() {
-        val drawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
+        val drawerLayout: DrawerLayout = findViewById(R.id.drawerLayout)
         if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
             drawerLayout.closeDrawer(GravityCompat.START)
         } else {
@@ -250,21 +348,36 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         // Handle navigation view item clicks here.
-        val monthToWeek = item.itemId == R.id.nav_week_view
-        val firstDate = calendarView.findFirstVisibleDay()?.date ?: return true
-        val lastDate = calendarView.findLastVisibleDay()?.date ?: return true
+        when (item.itemId) {
+            R.id.nav_week_view -> toggleCalendarView(true)
+            R.id.nav_month_view -> toggleCalendarView(false)
+            R.id.log_out_view -> {
+                FirebaseAuth.getInstance().signOut()
+                setDrawerMenuAuth(false)
+            }
+            R.id.sign_in_view -> signIn()
+        }
+
+        drawerLayout.closeDrawer(GravityCompat.START)
+
+        return true
+    }
+
+    private fun toggleCalendarView(toMonth: Boolean) {
+        val firstDate = calendarView.findFirstVisibleDay()?.date ?: return
+        val lastDate = calendarView.findLastVisibleDay()?.date ?: return
 
         val oneWeekHeight = calendarView.dayHeight
         val oneMonthHeight = oneWeekHeight * 6
 
-        val oldHeight = if (monthToWeek) oneMonthHeight else oneWeekHeight
-        val newHeight = if (monthToWeek) oneWeekHeight else oneMonthHeight
+        val oldHeight = if (toMonth) oneMonthHeight else oneWeekHeight
+        val newHeight = if (toMonth) oneWeekHeight else oneMonthHeight
 
         // Animate calendar height changes.
         val animator = ValueAnimator.ofInt(oldHeight, newHeight)
-        animator.addUpdateListener { animator ->
+        animator.addUpdateListener {
             calendarView.layoutParams = calendarView.layoutParams.apply {
-                height = animator.animatedValue as Int
+                height = it.animatedValue as Int
             }
         }
 
@@ -275,20 +388,20 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         // in height is visible. You can do this whichever way you prefer.
 
         animator.doOnStart {
-            if (!monthToWeek) {
+            if (!toMonth) {
                 calendarView.inDateStyle = InDateStyle.ALL_MONTHS
                 calendarView.maxRowCount = 6
                 calendarView.hasBoundaries = true
             }
         }
         animator.doOnEnd {
-            if (monthToWeek) {
+            if (toMonth) {
                 calendarView.inDateStyle = InDateStyle.FIRST_MONTH
                 calendarView.maxRowCount = 1
                 calendarView.hasBoundaries = false
             }
 
-            if (monthToWeek) {
+            if (toMonth) {
                 // We want the first visible day to remain
                 // visible when we change to week mode.
                 calendarView.scrollToDate(firstDate)
@@ -307,48 +420,36 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
         animator.duration = 250
 
-        val drawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
+        val drawerLayout: DrawerLayout = findViewById(R.id.drawerLayout)
         drawerLayout.closeDrawer(GravityCompat.START)
 
         animator.start()
-
-//        when (item.itemId) {
-//            R.id.nav_week_view -> {
-//                calendarView.maxRowCount = 1
-//                calendarView.hasBoundaries = false
-//                calendarView.scrollToDate(firstDate)
-//            }
-//            R.id.nav_month_view -> {
-//                calendarView.maxRowCount = 6
-//                calendarView.hasBoundaries = true
-//                if (firstDate.yearMonth == lastDate.yearMonth) {
-//                    calendarView.scrollToMonth(firstDate.yearMonth)
-//                } else {
-//                    calendarView.scrollToMonth(minOf(firstDate.yearMonth.next, lastMonth))
-//                }
-//            }
-//        }
-        return true
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == newTaskActivityRequestCode && resultCode == Activity.RESULT_OK) {
-        } else {
+        if (requestCode == newTaskActivityRequestCode && resultCode != Activity.RESULT_OK) {
             Toast.makeText(
                 applicationContext,
                 "Not saved",
-                Toast.LENGTH_LONG).show()
-        }
-        if (requestCode == RC_SIGN_IN) {
-            val response = IdpResponse.fromResultIntent(data)
+                Toast.LENGTH_LONG
+            ).show()
+        } else if (requestCode == RC_SIGN_IN) {
+//            val response = IdpResponse.fromResultIntent(data)
 
             if (resultCode == Activity.RESULT_OK) {
                 // Successfully signed in
-                val user = auth.currentUser
-                // ...
+                setDataForUser()
             } else {
+                setDrawerMenuAuth(false)
+
+                Toast.makeText(
+                    applicationContext,
+                    "Sign in failed",
+                    Toast.LENGTH_LONG
+                ).show()
+
                 // Sign in failed. If response is null the user canceled the
                 // sign-in flow using the back button. Otherwise check
                 // response.getError().getErrorCode() and handle the error.
@@ -369,7 +470,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun updateAdapterForDate(date: LocalDate) {
-        val eventsForToday = calendaricViewModel.allEvents.value?.filter { it.startedAt?.toLocalDate() == date }
-        if (eventsForToday !== null) eventAdapter.setEvents(eventsForToday)
+        eventAdapter.setEvents(daysWithEvents[date]?.sortedBy { it.startedAt } ?: emptyList<EventInstance>(), selectedDate)
+    }
+
+    private fun setDrawerMenuAuth(signed: Boolean) {
+        navView.menu.apply {
+            findItem(R.id.sign_in_view).isVisible = !signed
+            findItem(R.id.log_out_view).isVisible = signed
+        }
+
     }
 }

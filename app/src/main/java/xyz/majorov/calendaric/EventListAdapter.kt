@@ -1,50 +1,71 @@
 package xyz.majorov.calendaric
 
 import android.content.Context
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.android.synthetic.main.content_new_event.view.*
 import kotlinx.android.synthetic.main.event_recycler_view_item.view.*
-import org.threeten.bp.LocalTime
+import org.threeten.bp.LocalDate
 
 class EventListAdapter internal constructor(
-    context: Context
-) : RecyclerView.Adapter<EventListAdapter.TaskViewHolder>() {
+    context: Context, private val listener: OnItemClickListener
+) : RecyclerView.Adapter<EventListAdapter.EventViewHolder>() {
 
+    private var selectedDate: LocalDate = LocalDate.now()
     private val inflater: LayoutInflater = LayoutInflater.from(context)
-    private var events = emptyList<Event>() // Cached copy of words
+    private var events = emptyList<EventInstance>() // Cached copy of words
 
-    inner class TaskViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    inner class EventViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val view = itemView
         val eventItemView: TextView = itemView.eventView
         val eventStartedAtView: TextView = itemView.startTimeView
         val eventEndedAtView: TextView = itemView.endTimeView
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TaskViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): EventViewHolder {
         val itemView = inflater.inflate(R.layout.event_recycler_view_item, parent, false)
-        return TaskViewHolder(itemView)
+        return EventViewHolder(itemView)
     }
 
-    override fun onBindViewHolder(holder: TaskViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: EventViewHolder, position: Int) {
         val current = events[position]
+
+        holder.view.setOnClickListener {
+            listener.onItemClick(current.primaryKey)
+        }
+
         holder.eventItemView.text = current.name
 
-        if (current.startedAt?.hour == 0 && current.startedAt?.minute == 0 &&
-            current.endedAt?.hour == 23 && current.endedAt?.minute == 59) {
-            holder.eventStartedAtView.text = "All-day";
-            holder.eventEndedAtView.text = "";
-        } else {
-            holder.eventStartedAtView.text = formatTime(current.startedAt)
-            holder.eventEndedAtView.text =formatTime(current.endedAt)
+        current.startedAt?.let { start ->
+            current.endedAt?.let { end ->
+                val startDate = start.toLocalDate()
+                val endDate = end.toLocalDate()
+                if (startDate < selectedDate && endDate > selectedDate ||
+                    startDate == selectedDate && endDate == selectedDate &&
+                    start.hour == 0 && start.minute == 0 &&
+                    end.hour == 23 && end.minute == 59
+                ) {
+                    holder.eventStartedAtView.text = "All-day";
+                    holder.eventEndedAtView.text = "";
+                } else if (startDate < selectedDate && endDate == selectedDate) {
+                    holder.eventStartedAtView.text = "Before";
+                    holder.eventEndedAtView.text = formatTime(end);
+                } else if (startDate == selectedDate && endDate > selectedDate) {
+                    holder.eventStartedAtView.text = formatTime(start);
+                    holder.eventEndedAtView.text = "After";
+                } else {
+                    holder.eventStartedAtView.text = formatTime(start)
+                    holder.eventEndedAtView.text = formatTime(end)
+                }
+            }
         }
     }
 
-    internal fun setEvents(events: List<Event>) {
+    internal fun setEvents(events: List<EventInstance>, selectedDate: LocalDate) {
         this.events = events
+        this.selectedDate = selectedDate
         notifyDataSetChanged()
     }
 

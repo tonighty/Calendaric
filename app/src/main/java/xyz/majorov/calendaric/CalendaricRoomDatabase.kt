@@ -55,28 +55,28 @@ abstract class CalendaricRoomDatabase : RoomDatabase() {
         }
 
         suspend fun populateDatabase(taskDao: TaskDao, eventDao: EventDao) {
-            taskDao.deleteAll()
+//            taskDao.deleteAll()
+//
+//            var task = Task(1, "Hello", "Test", "OK", 1, null, 2)
+//            taskDao.insert(task)
+//            task = Task(2, "World", "Test", "OK", 1, null, 3)
+//            taskDao.insert(task)
 
-            var task = Task(1, "Hello", "Test", "OK", 1, null, 2)
-            taskDao.insert(task)
-            task = Task(2, "World", "Test", "OK", 1, null, 3)
-            taskDao.insert(task)
-
-            eventDao.deleteAll()
-            for (i in 1..10) {
-                eventDao.insert(Event(
-                    i,
-                    "test",
-                    "Go to hospital $i",
-                    "Do not forget tests",
-                    null,
-                    null,
-                    LocalDateTime.now().plusDays((i - 1).toLong()),
-                    LocalDateTime.now().plusDays((i - 1).toLong()).plusHours(2),
-                    null,
-                    null
-                ))
-            }
+//            eventDao.deleteAll()
+//            for (i in 1..10) {
+//                eventDao.insert(Event(
+//                    i,
+//                    "test",
+//                    "Go to hospital $i",
+//                    "Do not forget tests",
+//                    null,
+//                    null,
+//                    LocalDateTime.now().plusDays((i - 1).toLong()),
+//                    LocalDateTime.now().plusDays((i - 1).toLong()).plusHours(2),
+//                    null,
+//                    null
+//                ))
+//            }
         }
     }
 }

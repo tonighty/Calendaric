@@ -23,4 +23,18 @@
     <string name="status">Status</string>
     <string name="menu_week_view">Week</string>
     <string name="menu_month_view">Month</string>
+
+    <string name="preference_file_key">xyz.majorov.calendaric.PREFERENCE_FILE_KEY</string>
+    <string name="preference_firebase_token">xyz.majorov.calendaric.PREFERENCE_FIREBASE_TOKEN</string>
+    <string name="log_out">Log out</string>
+    <string name="sign_in">Sign in</string>
+    <string name="delete">Delete</string>
+
+    <string-array name="recur_array">
+        <item>Do not repeat</item>
+        <item>Every day</item>
+        <item>Every week</item>
+        <item>Every month</item>
+        <item>Every year</item>
+    </string-array>
 </resources>

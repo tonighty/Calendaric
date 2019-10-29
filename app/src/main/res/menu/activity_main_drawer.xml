@@ -13,4 +13,13 @@
                 android:icon="@drawable/ic_grid_on_black_24dp"
                 android:title="@string/menu_month_view"/>
     </group>
+
+    <item
+            android:id="@+id/log_out_view"
+            android:icon="@drawable/ic_clear_black_24dp"
+            android:title="@string/log_out"/>
+    <item
+            android:id="@+id/sign_in_view"
+            android:icon="@drawable/ic_input_black_24dp"
+            android:title="@string/sign_in"/>
 </menu>
