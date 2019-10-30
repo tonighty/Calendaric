@@ -283,9 +283,7 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
         }
     }
 
-    override fun onNothingSelected(parent: AdapterView<*>) {
-        // Another interface callback
-    }
+    override fun onNothingSelected(parent: AdapterView<*>) {}
 
     companion object {
         const val ACTION_CREATE = "create"

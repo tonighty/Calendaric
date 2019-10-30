@@ -73,8 +73,8 @@ class MainActivity : AppCompatActivity(),
     private val selectedDateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy")
 
     companion object {
-        private const val newTaskActivityRequestCode = 1
-        private const val editTaskActivityRequestCode = 2
+        private const val RC_CREATE_EVENT = 1
+        private const val RC_EDIT_EVENT = 2
         private const val RC_SIGN_IN = 123
         const val EXTRA_SELECTED_DATE = "xyz.majorov.calendaric.SELECTED_DATE"
         const val EXTRA_PRIMARY_KEY = "xyz.majorov.calendaric.EXTRA_PRIMARY_KEY"
@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity(),
                 action = EventActivity.ACTION_CREATE
                 putExtra(EXTRA_SELECTED_DATE, dateToTimestamp(selectedDate.atStartOfDay()))
             }
-            startActivityForResult(intent, newTaskActivityRequestCode)
+            startActivityForResult(intent, RC_CREATE_EVENT)
         }
 
         val toggle = ActionBarDrawerToggle(
@@ -129,6 +129,7 @@ class MainActivity : AppCompatActivity(),
                 }
 
                 val monthAgo = LocalDate.now().minusMonths(1)
+
                 for (event in it) {
                     var start = event.startedAt?.toLocalDate() ?: continue
                     val end = event.endedAt?.toLocalDate() ?: continue
@@ -167,9 +168,11 @@ class MainActivity : AppCompatActivity(),
                         }
                     }
                 }
+
                 val emptyDays = oldDays - daysWithEvents
-                for (d in emptyDays)
-                    calendarView.notifyDateChanged(d)
+                for (day in emptyDays)
+                    calendarView.notifyDateChanged(day)
+
                 updateAdapterForDate(selectedDate)
                 weekView.notifyDatasetChanged()
             }
@@ -269,9 +272,7 @@ class MainActivity : AppCompatActivity(),
         weekView.setOnEventClickListener { event, _ ->
             editEvent(event.id)
         }
-        weekView.setEventLongPressListener { _, _ ->
-
-        }
+        weekView.setEventLongPressListener { _, _ -> }
         weekView.setEmptyViewClickListener {
             selectedDate = LocalDate.of(
                 it.get(Calendar.YEAR),
@@ -413,7 +414,7 @@ class MainActivity : AppCompatActivity(),
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == newTaskActivityRequestCode && resultCode != Activity.RESULT_OK) {
+        if (requestCode == RC_CREATE_EVENT && resultCode != Activity.RESULT_OK) {
             Toast.makeText(
                 applicationContext,
                 "Not saved",
@@ -502,6 +503,6 @@ class MainActivity : AppCompatActivity(),
             action = EventActivity.ACTION_EDIT
             putExtra(EXTRA_PRIMARY_KEY, id)
         }
-        startActivityForResult(intent, editTaskActivityRequestCode)
+        startActivityForResult(intent, RC_EDIT_EVENT)
     }
 }

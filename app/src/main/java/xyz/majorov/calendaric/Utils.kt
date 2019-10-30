@@ -33,6 +33,3 @@ fun fromTimestamp(value: Long?): LocalDateTime? {
     }
 }
 
-interface OnItemClickListener {
-    fun onItemClick(itemId: Long?)
-}

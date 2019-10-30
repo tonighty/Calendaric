@@ -20,9 +20,8 @@ class CalendaricRepository(private val taskDao: TaskDao, private val eventDao: E
         return eventDao.getByPrimaryKey(key)
     }
 
-    suspend fun deleteEvent(event: Event) {
+    fun deleteEvent(event: Event) {
         val eventId = event.id
-        val patternId = event.patternId
         eventDao.deleteEvents(event)
         if (eventId !== null) deleteEventWeb(eventId)
     }
