@@ -54,11 +54,12 @@ class CalendaricRepository(private val taskDao: TaskDao, private val eventDao: E
             val patternsResponse = api.listPatterns().execute()
             val patternsBody = patternsResponse.body() ?: return
             if (patternsResponse.code() != 200) return
+            val patternsByEventId = patternsBody.data.associateBy { it.event_id }
 
             for (eventFromWeb in eventsBody.data) {
                 Log.v(Constants.LOG_TAG, "Got event from web: ${eventFromWeb.id}")
                 val event = eventDao.getById(eventFromWeb.id) ?: Event(eventFromWeb)
-                val pattern = patternsBody.data.find { it.event_id == eventFromWeb.id }
+                val pattern = patternsByEventId[event.id]
 
                 event.patternId = pattern?.id
                 event.rrule = pattern?.rrule
