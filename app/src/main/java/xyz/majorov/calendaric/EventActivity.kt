@@ -76,7 +76,7 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
 
         calendaricViewModel = ViewModelProvider(this).get(CalendaricViewModel::class.java)
 
-        if (intent.action === "EDIT") {
+        if (intent.action === ACTION_EDIT) {
             this.title = "Edit event"
             calendaricViewModel.getEventByPrimaryKey(intent.getLongExtra("event_primary_key", -1))
                 .observe(this, Observer { eventFromDb ->
@@ -88,20 +88,22 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                         statusText.setText(it.status)
                         startedAt = it.startedAt
                         endedAt = it.endedAt
-                        if (it.rrule !== null) when (RecurrenceRule(it.rrule).freq) {
-                            RecurrenceRule.Freq.DAILY -> spinnerRecur.setSelection(1)
-                            RecurrenceRule.Freq.WEEKLY -> spinnerRecur.setSelection(2)
-                            RecurrenceRule.Freq.MONTHLY -> spinnerRecur.setSelection(3)
-                            RecurrenceRule.Freq.YEARLY -> spinnerRecur.setSelection(4)
-                            else -> spinnerRecur.setSelection(0)
-                        } else spinnerRecur.setSelection(0)
+                        if (it.rrule !== null && it.rrule != "FREQ=DAILY;INTERVAL=1;COUNT=1")
+                            when (RecurrenceRule(it.rrule).freq) {
+                                RecurrenceRule.Freq.DAILY -> spinnerRecur.setSelection(1)
+                                RecurrenceRule.Freq.WEEKLY -> spinnerRecur.setSelection(2)
+                                RecurrenceRule.Freq.MONTHLY -> spinnerRecur.setSelection(3)
+                                RecurrenceRule.Freq.YEARLY -> spinnerRecur.setSelection(4)
+                                else -> spinnerRecur.setSelection(0)
+                            }
+                        else spinnerRecur.setSelection(0)
 
                         if (it.startedAt?.hour == 0 && it.startedAt?.minute == 0 &&
                             it.endedAt?.hour == 23 && it.endedAt?.minute == 59
                         ) allDaySwitch.isChecked = true
                     }
                 })
-        } else if (intent.action == "CREATE") {
+        } else if (intent.action == ACTION_CREATE) {
             this.title = "Create event"
             val day = intent.getLongExtra("selectedDate", -1)
             if (day != -1L) {
@@ -179,8 +181,6 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                     }
                     RecurrenceRule.Freq.WEEKLY -> {
                         rule = "$rule;BYDAY:${days[startedAt.dayOfWeek.value - 1]}"
-                    }
-                    else -> {
                     }
                 }
                 if (intent.action === "CREATE") {
@@ -295,5 +295,10 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
 
     override fun onNothingSelected(parent: AdapterView<*>) {
         // Another interface callback
+    }
+
+    companion object {
+        const val ACTION_CREATE = "create"
+        const val ACTION_EDIT = "edit"
     }
 }

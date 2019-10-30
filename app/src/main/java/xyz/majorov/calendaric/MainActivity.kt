@@ -1,6 +1,5 @@
 package xyz.majorov.calendaric
 
-import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -18,8 +17,6 @@ import androidx.annotation.ColorRes
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import androidx.core.animation.doOnEnd
-import androidx.core.animation.doOnStart
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
@@ -27,6 +24,7 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.alamkanak.weekview.WeekViewEvent
 import com.firebase.ui.auth.AuthUI
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
@@ -34,13 +32,12 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.kizitonwose.calendarview.model.CalendarDay
 import com.kizitonwose.calendarview.model.DayOwner
-import com.kizitonwose.calendarview.model.InDateStyle
 import com.kizitonwose.calendarview.ui.DayBinder
 import com.kizitonwose.calendarview.ui.ViewContainer
-import com.kizitonwose.calendarview.utils.next
 import com.kizitonwose.calendarview.utils.yearMonth
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.calendar_day_layout.view.*
+import kotlinx.android.synthetic.main.calendar_day_legend.*
 import kotlinx.android.synthetic.main.content_main.*
 import kotlinx.android.synthetic.main.nav_header_main.*
 import org.dmfs.rfc5545.recur.RecurrenceRule
@@ -56,7 +53,8 @@ internal fun Context.getColorCompat(@ColorRes color: Int) = ContextCompat.getCol
 internal fun TextView.setTextColorResource(@ColorRes color: Int) = setTextColor(context.getColorCompat(color))
 
 
-class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
+class MainActivity : AppCompatActivity(),
+    NavigationView.OnNavigationItemSelectedListener {
 
 
     private val today = LocalDate.now()
@@ -66,7 +64,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private lateinit var eventAdapter: EventListAdapter
     private lateinit var firstMonth: YearMonth
     private lateinit var lastMonth: YearMonth
-    private val daysWithEvents: MutableMap<LocalDate, MutableList<EventInstance>> = mutableMapOf()
+    private val daysWithEvents = mutableSetOf<LocalDate>()
+    private val eventInstances = mutableListOf<EventInstance>()
 
     private val titleDateFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
     private val titleMonthFormatter = DateTimeFormatter.ofPattern("MMMM")
@@ -85,10 +84,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val toolbar: Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
 
+        weekView.visibility = INVISIBLE
+
         val fab: FloatingActionButton = findViewById(R.id.fab)
         fab.setOnClickListener {
             val intent = Intent(this@MainActivity, EventActivity::class.java).apply {
-                action = "CREATE"
+                action = EventActivity.ACTION_CREATE
                 putExtra("selectedDate", dateToTimestamp(selectedDate.atStartOfDay()))
             }
             startActivityForResult(intent, newTaskActivityRequestCode)
@@ -105,12 +106,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         recyclerView = findViewById(R.id.eventRecyclerView)
         eventAdapter = EventListAdapter(this, object : OnItemClickListener {
             override fun onItemClick(itemId: Long?) {
-                if (itemId === null) return
-                val intent = Intent(this@MainActivity, EventActivity::class.java).apply {
-                    action = "EDIT"
-                    putExtra("event_primary_key", itemId)
-                }
-                startActivityForResult(intent, editTaskActivityRequestCode)
+                editEvent(itemId)
             }
         })
         recyclerView.adapter = eventAdapter
@@ -121,50 +117,53 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         calendaricViewModel.allEvents.observe(this, Observer { events ->
             // Update the cached copy of the words in the adapter.
             events?.let { it ->
-                val oldDays = daysWithEvents.keys.toSet()
+                val oldDays = daysWithEvents.toSet()
                 daysWithEvents.clear()
                 val monthAgo = LocalDate.now().minusMonths(1)
                 for (event in it) {
                     var start = event.startedAt?.toLocalDate() ?: continue
                     val end = event.endedAt?.toLocalDate() ?: continue
-                    val addToList = { date: LocalDate, eventInstance: EventInstance? ->
-                        if (daysWithEvents[date] === null)
-                            daysWithEvents[date] = mutableListOf()
-                        daysWithEvents[date]?.add(eventInstance ?: EventInstance(event))
+
+                    val addToList = { date: LocalDate ->
+                        daysWithEvents.add(date)
                         calendarView.notifyDateChanged(date)
                     }
+
                     var valid = true
                     try {
                         RecurrenceRule(event.rrule)
                     } catch (e: Exception) {
                         valid = false
                     }
+
                     if (event.rrule.isNullOrBlank() || !valid) {
-                        if (start == end) {
-                            addToList(start, null)
-                        } else while (start <= end) {
-                            addToList(start, null)
+                        eventInstances.add(EventInstance(event))
+                        while (start <= end) {
+                            addToList(start)
                             start = start.plusDays(1)
                         }
                     } else {
-                        val dif = Duration.between(start.atStartOfDay(), end.atStartOfDay()).toDays()
+                        val dayDiff = Duration.between(start.atStartOfDay(), end.atStartOfDay()).toDays()
                         val rule = RecurrenceRule(event.rrule)
-                        val rStart = localDateToDateTime(if (start < monthAgo) monthAgo else start)
-                        val iter = rule.iterator(rStart)
-
+                        val ruleStart = localDateToDateTime(if (start < monthAgo) monthAgo else start)
+                        val ruleIterator = rule.iterator(ruleStart)
                         var maxInstances = 50
-                        while (iter.hasNext() && (!rule.isInfinite || maxInstances-- > 0)) {
-                            val localStart = dateTimeToLocalDate(iter.nextDateTime())
+
+                        while (ruleIterator.hasNext() && (!rule.isInfinite || maxInstances-- > 0)) {
+                            val localStart = dateTimeToLocalDate(ruleIterator.nextDateTime())
                             val instance = EventInstance(event)
                             event.startedAt?.let { instance.startedAt = localStart.atTime(it.toLocalTime()) }
-                            event.endedAt?.let { instance.endedAt = localStart.plusDays(dif).atTime(it.toLocalTime()) }
-                            for (d in 0..dif) {
-                                addToList(localStart.plusDays(d), instance)
+                            event.endedAt?.let {
+                                instance.endedAt = localStart.plusDays(dayDiff).atTime(it.toLocalTime())
+                            }
+                            eventInstances.add(instance)
+                            for (d in 0..dayDiff) {
+                                addToList(localStart.plusDays(d))
                             }
                         }
                     }
                 }
-                val emptyDays = oldDays - daysWithEvents.keys
+                val emptyDays = oldDays - daysWithEvents
                 for (d in emptyDays)
                     calendarView.notifyDateChanged(d)
                 updateAdapterForDate(selectedDate)
@@ -199,7 +198,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 val dotView = container.dotView
 
                 if (day.owner == DayOwner.THIS_MONTH) {
-                    if (daysWithEvents.keys.contains(day.date)) {
+                    if (daysWithEvents.contains(day.date)) {
                         dotView.visibility = VISIBLE
                     } else {
                         dotView.visibility = INVISIBLE
@@ -226,21 +225,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 }
             }
         }
-
-//        class MonthViewContainer(view: View) : ViewContainer(view) {
-//            val textView = view.calendarHeaderText
-//        }
-//
-//        calendarView.monthHeaderBinder = object : MonthHeaderFooterBinder<MonthViewContainer> {
-//            override fun create(view: View) = MonthViewContainer(view)
-//            override fun bind(container: MonthViewContainer, month: CalendarMonth) {
-//                container.textView.text = "${month.yearMonth.month.name.toLowerCase().capitalize()} ${month.year}"
-//
-//                if (month.month == today.monthValue) {
-//                    container.textView.setTextColorResource(R.color.colorAccent)
-//                }
-//            }
-//        }
 
         calendarView.monthScrollListener = {
             if (calendarView.maxRowCount == 6) {
@@ -276,6 +260,16 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
         calendarView.setup(firstMonth, lastMonth, firstDayOfWeek)
         calendarView.scrollToMonth(currentMonth)
+
+        weekView.setOnEventClickListener { event, _ ->
+            editEvent(event.id)
+        }
+        weekView.setEventLongPressListener { _, _ ->
+
+        }
+        weekView.setMonthChangeListener { newYear, newMonth ->
+            getEventInstances(newYear, newMonth)
+        }
 
         if (FirebaseAuth.getInstance().currentUser === null) {
             setDrawerMenuAuth(false)
@@ -364,66 +358,19 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun toggleCalendarView(toMonth: Boolean) {
-        val firstDate = calendarView.findFirstVisibleDay()?.date ?: return
-        val lastDate = calendarView.findLastVisibleDay()?.date ?: return
-
-        val oneWeekHeight = calendarView.dayHeight
-        val oneMonthHeight = oneWeekHeight * 6
-
-        val oldHeight = if (toMonth) oneMonthHeight else oneWeekHeight
-        val newHeight = if (toMonth) oneWeekHeight else oneMonthHeight
-
-        // Animate calendar height changes.
-        val animator = ValueAnimator.ofInt(oldHeight, newHeight)
-        animator.addUpdateListener {
-            calendarView.layoutParams = calendarView.layoutParams.apply {
-                height = it.animatedValue as Int
-            }
+        if (!toMonth) {
+            weekView.visibility = INVISIBLE
+            calendarView.visibility = VISIBLE
+            eventRecyclerView.visibility = VISIBLE
+            currentDayView.visibility = VISIBLE
+            legendLayout.visibility = VISIBLE
+        } else {
+            calendarView.visibility = INVISIBLE
+            eventRecyclerView.visibility = INVISIBLE
+            currentDayView.visibility = INVISIBLE
+            legendLayout.visibility = INVISIBLE
+            weekView.visibility = VISIBLE
         }
-
-        // When changing from month to week mode, we change the calendar's
-        // config at the end of the animation(doOnEnd) but when changing
-        // from week to month mode, we change the calendar's config at
-        // the start of the animation(doOnStart). This is so that the change
-        // in height is visible. You can do this whichever way you prefer.
-
-        animator.doOnStart {
-            if (!toMonth) {
-                calendarView.inDateStyle = InDateStyle.ALL_MONTHS
-                calendarView.maxRowCount = 6
-                calendarView.hasBoundaries = true
-            }
-        }
-        animator.doOnEnd {
-            if (toMonth) {
-                calendarView.inDateStyle = InDateStyle.FIRST_MONTH
-                calendarView.maxRowCount = 1
-                calendarView.hasBoundaries = false
-            }
-
-            if (toMonth) {
-                // We want the first visible day to remain
-                // visible when we change to week mode.
-                calendarView.scrollToDate(firstDate)
-                calendarView.notifyMonthChanged(firstDate.yearMonth)
-            } else {
-                // When changing to month mode, we choose current
-                // month if it is the only one in the current frame.
-                // if we have multiple months in one frame, we prefer
-                // the second one unless it's an outDate in the last index.
-                if (firstDate.yearMonth == lastDate.yearMonth) {
-                    calendarView.scrollToMonth(firstDate.yearMonth)
-                } else {
-                    calendarView.scrollToMonth(minOf(firstDate.yearMonth.next, lastMonth))
-                }
-            }
-        }
-        animator.duration = 250
-
-        val drawerLayout: DrawerLayout = findViewById(R.id.drawerLayout)
-        drawerLayout.closeDrawer(GravityCompat.START)
-
-        animator.start()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -470,7 +417,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun updateAdapterForDate(date: LocalDate) {
-        eventAdapter.setEvents(daysWithEvents[date]?.sortedBy { it.startedAt } ?: emptyList<EventInstance>(), selectedDate)
+        val eventsForDate = eventInstances.filter {
+            val start = it.startedAt?.toLocalDate() ?: return@filter false
+            val end = it.endedAt?.toLocalDate() ?: return@filter false
+
+            date in start..end
+        }
+        eventAdapter.setEvents(eventsForDate, selectedDate)
     }
 
     private fun setDrawerMenuAuth(signed: Boolean) {
@@ -478,6 +431,45 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             findItem(R.id.sign_in_view).isVisible = !signed
             findItem(R.id.log_out_view).isVisible = signed
         }
+    }
 
+    private fun getEventInstances(year: Int, month: Int): List<WeekViewEvent> {
+        return eventInstances.filter {
+            val startMonth = it.startedAt?.monthValue ?: return@filter false
+            val startYear = it.startedAt?.year ?: return@filter false
+
+            var endMonth = it.endedAt?.monthValue ?: return@filter false
+            val endYear = it.endedAt?.year ?: return@filter false
+
+            if (endMonth < startMonth) endMonth += 12
+
+            month in startMonth..endMonth && year in startYear..endYear
+        }.map {
+            val start = it.startedAt!!
+            val end = it.endedAt!!
+            return@map WeekViewEvent(
+                it.primaryKey,
+                it.name,
+                start.year,
+                start.monthValue,
+                start.dayOfMonth,
+                start.hour,
+                start.minute,
+                end.year,
+                end.monthValue,
+                end.dayOfMonth,
+                end.hour,
+                end.minute
+            )
+        }
+    }
+
+    private fun editEvent(id: Long?) {
+        if (id === null) return
+        val intent = Intent(this@MainActivity, EventActivity::class.java).apply {
+            action = EventActivity.ACTION_EDIT
+            putExtra("event_primary_key", id)
+        }
+        startActivityForResult(intent, editTaskActivityRequestCode)
     }
 }

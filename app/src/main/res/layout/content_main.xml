@@ -33,7 +33,7 @@
             android:layout_height="wrap_content" android:id="@+id/currentDayView"
             app:layout_constraintTop_toBottomOf="@+id/view7"
             app:layout_constraintBottom_toTopOf="@+id/eventRecyclerView"
-            android:text="fdsfsdafas fasd" app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" android:textColor="@color/black"
             android:background="@color/muted"
             android:paddingVertical="10dp" android:paddingHorizontal="20dp"/>
@@ -47,5 +47,22 @@
             tools:layout_editor_absoluteX="0dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/currentDayView"/>
+
+    <com.alamkanak.weekview.WeekView
+            android:id="@+id/weekView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:eventTextColor="@android:color/white"
+            app:textSize="10sp"
+            app:hourHeight="60dp"
+            app:headerColumnPadding="5dp"
+            app:headerColumnTextColor="#8f000000"
+            app:headerRowPadding="5dp"
+            app:columnGap="8dp"
+            app:noOfVisibleDays="7"
+            app:headerRowBackgroundColor="#ffefefef"
+            app:dayBackgroundColor="#05000000"
+            app:todayBackgroundColor="#1848adff"
+            app:headerColumnBackground="#ffffffff"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
