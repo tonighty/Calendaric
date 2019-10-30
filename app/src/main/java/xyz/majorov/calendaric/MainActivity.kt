@@ -38,7 +38,6 @@ import com.kizitonwose.calendarview.utils.yearMonth
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.app_bar_main.*
 import kotlinx.android.synthetic.main.calendar_day_layout.view.*
-import kotlinx.android.synthetic.main.calendar_day_legend.*
 import kotlinx.android.synthetic.main.content_main.*
 import kotlinx.android.synthetic.main.nav_header_main.*
 import org.dmfs.rfc5545.recur.RecurrenceRule
@@ -123,15 +122,16 @@ class MainActivity : AppCompatActivity(),
                 val oldDays = daysWithEvents.toSet()
                 daysWithEvents.clear()
                 eventInstances.clear()
+
+                val addToList = { date: LocalDate ->
+                    daysWithEvents.add(date)
+                    calendarView.notifyDateChanged(date)
+                }
+
                 val monthAgo = LocalDate.now().minusMonths(1)
                 for (event in it) {
                     var start = event.startedAt?.toLocalDate() ?: continue
                     val end = event.endedAt?.toLocalDate() ?: continue
-
-                    val addToList = { date: LocalDate ->
-                        daysWithEvents.add(date)
-                        calendarView.notifyDateChanged(date)
-                    }
 
                     var valid = true
                     try {
@@ -376,7 +376,7 @@ class MainActivity : AppCompatActivity(),
             calendarView.visibility = VISIBLE
             eventRecyclerView.visibility = VISIBLE
             currentDayView.visibility = VISIBLE
-            legendLayout.visibility = VISIBLE
+            calendarDayLegend.visibility = VISIBLE
 
             val scrollTo = weekView.firstVisibleDay
             if (scrollTo != null) {
@@ -395,7 +395,7 @@ class MainActivity : AppCompatActivity(),
             calendarView.visibility = INVISIBLE
             eventRecyclerView.visibility = INVISIBLE
             currentDayView.visibility = INVISIBLE
-            legendLayout.visibility = INVISIBLE
+            calendarDayLegend.visibility = INVISIBLE
             weekView.visibility = VISIBLE
 
             weekView.goToDate(Calendar.getInstance().apply {
