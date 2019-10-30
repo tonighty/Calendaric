@@ -122,6 +122,7 @@ class MainActivity : AppCompatActivity(),
             events?.let { it ->
                 val oldDays = daysWithEvents.toSet()
                 daysWithEvents.clear()
+                eventInstances.clear()
                 val monthAgo = LocalDate.now().minusMonths(1)
                 for (event in it) {
                     var start = event.startedAt?.toLocalDate() ?: continue
@@ -170,6 +171,7 @@ class MainActivity : AppCompatActivity(),
                 for (d in emptyDays)
                     calendarView.notifyDateChanged(d)
                 updateAdapterForDate(selectedDate)
+                weekView.notifyDatasetChanged()
             }
         })
 
@@ -269,6 +271,14 @@ class MainActivity : AppCompatActivity(),
         }
         weekView.setEventLongPressListener { _, _ ->
 
+        }
+        weekView.setEmptyViewClickListener {
+            selectedDate = LocalDate.of(
+                it.get(Calendar.YEAR),
+                it.get(Calendar.MONTH) + 1,
+                it.get(Calendar.DAY_OF_MONTH)
+            )
+            weekView.goToDate(it)
         }
         weekView.setMonthChangeListener { newYear, newMonth ->
             getEventInstances(newYear, newMonth)
@@ -395,6 +405,8 @@ class MainActivity : AppCompatActivity(),
                     selectedDate.dayOfMonth
                 )
             })
+
+            toolbar.title = "Week View"
         }
     }
 

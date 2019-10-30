@@ -221,7 +221,7 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
-        if (intent.action === "EDIT") menuInflater.inflate(R.menu.event, menu)
+        if (intent.action === ACTION_EDIT) menuInflater.inflate(R.menu.event, menu)
         return true
     }
 
