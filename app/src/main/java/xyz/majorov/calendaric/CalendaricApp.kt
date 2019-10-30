@@ -9,3 +9,9 @@ class CalendaricApp : Application() {
         AndroidThreeTen.init(this)
     }
 }
+
+class Constants {
+    companion object {
+        const val LOG_TAG = "mjr"
+    }
+}

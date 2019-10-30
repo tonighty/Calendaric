@@ -28,7 +28,7 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
 
     private lateinit var calendaricViewModel: CalendaricViewModel
     private var event: Event? = null
-    private var rrule: RecurrenceRule.Freq? = null
+    private var freq: RecurrenceRule.Freq? = null
     private val days = listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU")
 
     private var startedAt = LocalDateTime.now()
@@ -77,8 +77,8 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
         calendaricViewModel = ViewModelProvider(this).get(CalendaricViewModel::class.java)
 
         if (intent.action === ACTION_EDIT) {
-            this.title = "Edit event"
-            calendaricViewModel.getEventByPrimaryKey(intent.getLongExtra("event_primary_key", -1))
+            this.title = getString(R.string.edit_event)
+            calendaricViewModel.getEventByPrimaryKey(intent.getLongExtra(MainActivity.EXTRA_PRIMARY_KEY, -1))
                 .observe(this, Observer { eventFromDb ->
                     eventFromDb?.let {
                         event = it
@@ -104,8 +104,8 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                     }
                 })
         } else if (intent.action == ACTION_CREATE) {
-            this.title = "Create event"
-            val day = intent.getLongExtra("selectedDate", -1)
+            this.title = getString(R.string.create_event)
+            val day = intent.getLongExtra(MainActivity.EXTRA_SELECTED_DATE, -1)
             if (day != -1L) {
                 startedAt = fromTimestamp(day)?.plusHours(12)
                 endedAt = startedAt.plusHours(2)
@@ -169,9 +169,8 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
             if (TextUtils.isEmpty(nameText.text)) {
                 setResult(Activity.RESULT_CANCELED, replyIntent)
             } else {
-                val recur = RecurrenceRule(rrule).apply { interval = 1 }
-                var rule = recur.toString()
-                when (rrule) {
+                var rule = RecurrenceRule(freq).apply { interval = 1 }.toString()
+                when (freq) {
                     RecurrenceRule.Freq.MONTHLY -> {
                         rule = "$rule;BYMONTHDAY:${startedAt.dayOfMonth}"
                     }
@@ -182,8 +181,9 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                     RecurrenceRule.Freq.WEEKLY -> {
                         rule = "$rule;BYDAY:${days[startedAt.dayOfWeek.value - 1]}"
                     }
+                    else -> {}
                 }
-                if (intent.action === "CREATE") {
+                if (intent.action === ACTION_CREATE) {
                     calendaricViewModel.insertEvent(
                         Event(
                             0,
@@ -196,10 +196,10 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                             statusText.text.toString(),
                             startedAt,
                             endedAt,
-                            if (rrule !== null) rule else "FREQ=DAILY;INTERVAL=1;COUNT=1"
+                            if (freq !== null) rule else "FREQ=DAILY;INTERVAL=1;COUNT=1"
                         )
                     )
-                } else {
+                } else if (intent.action === ACTION_EDIT) {
                     event?.let {
                         it.name = nameText.text.toString()
                         it.details = detailsText.text.toString()
@@ -207,7 +207,7 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                         it.status = statusText.text.toString()
                         it.startedAt = startedAt
                         it.endedAt = endedAt
-                        it.rrule = if (rrule !== null) rule else "FREQ=DAILY;INTERVAL=1;COUNT=1"
+                        it.rrule = if (freq !== null) rule else "FREQ=DAILY;INTERVAL=1;COUNT=1"
                         calendaricViewModel.updateEvent(it)
                     }
                 }
@@ -275,21 +275,11 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
 
     override fun onItemSelected(parent: AdapterView<*>, view: View, pos: Int, id: Long) {
         when (pos) {
-            0 -> {
-                rrule = null
-            }
-            1 -> {
-                rrule = RecurrenceRule.Freq.DAILY
-            }
-            2 -> {
-                rrule = RecurrenceRule.Freq.WEEKLY
-            }
-            3 -> {
-                rrule = RecurrenceRule.Freq.MONTHLY
-            }
-            4 -> {
-                rrule = RecurrenceRule.Freq.YEARLY
-            }
+            0 -> freq = null
+            1 -> freq = RecurrenceRule.Freq.DAILY
+            2 -> freq = RecurrenceRule.Freq.WEEKLY
+            3 -> freq = RecurrenceRule.Freq.MONTHLY
+            4 -> freq = RecurrenceRule.Freq.YEARLY
         }
     }
 

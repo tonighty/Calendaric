@@ -36,6 +36,7 @@ import com.kizitonwose.calendarview.ui.DayBinder
 import com.kizitonwose.calendarview.ui.ViewContainer
 import com.kizitonwose.calendarview.utils.yearMonth
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.app_bar_main.*
 import kotlinx.android.synthetic.main.calendar_day_layout.view.*
 import kotlinx.android.synthetic.main.calendar_day_legend.*
 import kotlinx.android.synthetic.main.content_main.*
@@ -76,6 +77,8 @@ class MainActivity : AppCompatActivity(),
         private const val newTaskActivityRequestCode = 1
         private const val editTaskActivityRequestCode = 2
         private const val RC_SIGN_IN = 123
+        const val EXTRA_SELECTED_DATE = "xyz.majorov.calendaric.SELECTED_DATE"
+        const val EXTRA_PRIMARY_KEY = "xyz.majorov.calendaric.EXTRA_PRIMARY_KEY"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,7 +93,7 @@ class MainActivity : AppCompatActivity(),
         fab.setOnClickListener {
             val intent = Intent(this@MainActivity, EventActivity::class.java).apply {
                 action = EventActivity.ACTION_CREATE
-                putExtra("selectedDate", dateToTimestamp(selectedDate.atStartOfDay()))
+                putExtra(EXTRA_SELECTED_DATE, dateToTimestamp(selectedDate.atStartOfDay()))
             }
             startActivityForResult(intent, newTaskActivityRequestCode)
         }
@@ -304,7 +307,7 @@ class MainActivity : AppCompatActivity(),
             it.updateProfile(profileUpdates)
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        Log.d("lol", "User profile updated.")
+                        Log.d(Constants.LOG_TAG, "User profile updated.")
                         userNameView.text = it.displayName ?: "No name"
                         it.phoneNumber?.let { phone ->
                             userEmailView.text = PhoneNumberUtils.formatNumber(phone, Locale.getDefault().country)
@@ -364,12 +367,34 @@ class MainActivity : AppCompatActivity(),
             eventRecyclerView.visibility = VISIBLE
             currentDayView.visibility = VISIBLE
             legendLayout.visibility = VISIBLE
+
+            val scrollTo = weekView.firstVisibleDay
+            if (scrollTo != null) {
+                calendarView.scrollToDate(
+                    LocalDate.of(
+                        scrollTo.get(Calendar.YEAR),
+                        scrollTo.get(Calendar.MONTH) + 1,
+                        scrollTo.get(Calendar.DAY_OF_MONTH)
+                    )
+                )
+            } else {
+                calendarView.scrollToDate(selectedDate)
+                toolbar.title = titleDateFormatter.format(selectedDate.yearMonth)
+            }
         } else {
             calendarView.visibility = INVISIBLE
             eventRecyclerView.visibility = INVISIBLE
             currentDayView.visibility = INVISIBLE
             legendLayout.visibility = INVISIBLE
             weekView.visibility = VISIBLE
+
+            weekView.goToDate(Calendar.getInstance().apply {
+                set(
+                    selectedDate.year,
+                    selectedDate.monthValue - 1,
+                    selectedDate.dayOfMonth
+                )
+            })
         }
     }
 
@@ -396,11 +421,6 @@ class MainActivity : AppCompatActivity(),
                     "Sign in failed",
                     Toast.LENGTH_LONG
                 ).show()
-
-                // Sign in failed. If response is null the user canceled the
-                // sign-in flow using the back button. Otherwise check
-                // response.getError().getErrorCode() and handle the error.
-                // ...
             }
         }
     }
@@ -468,7 +488,7 @@ class MainActivity : AppCompatActivity(),
         if (id === null) return
         val intent = Intent(this@MainActivity, EventActivity::class.java).apply {
             action = EventActivity.ACTION_EDIT
-            putExtra("event_primary_key", id)
+            putExtra(EXTRA_PRIMARY_KEY, id)
         }
         startActivityForResult(intent, editTaskActivityRequestCode)
     }

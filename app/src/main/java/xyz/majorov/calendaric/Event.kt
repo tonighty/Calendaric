@@ -2,9 +2,7 @@ package xyz.majorov.calendaric
 
 import androidx.lifecycle.LiveData
 import androidx.room.*
-import com.google.gson.annotations.SerializedName
 import org.threeten.bp.LocalDateTime
-import org.threeten.bp.ZoneOffset
 
 @Entity
 data class Event(

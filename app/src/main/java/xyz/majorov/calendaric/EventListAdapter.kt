@@ -10,12 +10,12 @@ import kotlinx.android.synthetic.main.event_recycler_view_item.view.*
 import org.threeten.bp.LocalDate
 
 class EventListAdapter internal constructor(
-    context: Context, private val listener: OnItemClickListener
+    private val context: Context, private val listener: OnItemClickListener
 ) : RecyclerView.Adapter<EventListAdapter.EventViewHolder>() {
 
     private var selectedDate: LocalDate = LocalDate.now()
     private val inflater: LayoutInflater = LayoutInflater.from(context)
-    private var events = emptyList<EventInstance>() // Cached copy of words
+    private var events = emptyList<EventInstance>()
 
     inner class EventViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val view = itemView
@@ -47,14 +47,14 @@ class EventListAdapter internal constructor(
                     start.hour == 0 && start.minute == 0 &&
                     end.hour == 23 && end.minute == 59
                 ) {
-                    holder.eventStartedAtView.text = "All-day";
-                    holder.eventEndedAtView.text = "";
+                    holder.eventStartedAtView.text = context.getString(R.string.all_day)
+                    holder.eventEndedAtView.text = ""
                 } else if (startDate < selectedDate && endDate == selectedDate) {
-                    holder.eventStartedAtView.text = "Before";
-                    holder.eventEndedAtView.text = formatTime(end);
+                    holder.eventStartedAtView.text = context.getString(R.string.before)
+                    holder.eventEndedAtView.text = formatTime(end)
                 } else if (startDate == selectedDate && endDate > selectedDate) {
-                    holder.eventStartedAtView.text = formatTime(start);
-                    holder.eventEndedAtView.text = "After";
+                    holder.eventStartedAtView.text = formatTime(start)
+                    holder.eventEndedAtView.text = context.getString(R.string.after)
                 } else {
                     holder.eventStartedAtView.text = formatTime(start)
                     holder.eventEndedAtView.text = formatTime(end)

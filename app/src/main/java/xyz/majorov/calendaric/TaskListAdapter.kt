@@ -13,7 +13,7 @@ class TaskListAdapter internal constructor(
 ) : RecyclerView.Adapter<TaskListAdapter.TaskViewHolder>() {
 
     private val inflater: LayoutInflater = LayoutInflater.from(context)
-    private var tasks = emptyList<Task>() // Cached copy of words
+    private var tasks = emptyList<Task>()
 
     inner class TaskViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val taskItemView: TextView = itemView.taskView

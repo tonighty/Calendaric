@@ -5,13 +5,11 @@ import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GetTokenResult
 import com.google.gson.annotations.SerializedName
-import retrofit2.Call
-import retrofit2.converter.gson.GsonConverterFactory
 import okhttp3.OkHttpClient
 import org.threeten.bp.LocalDateTime
-import org.threeten.bp.ZoneOffset
+import retrofit2.Call
+import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
-import java.lang.Exception
 import java.util.concurrent.TimeUnit
 
 
@@ -49,28 +47,29 @@ interface CalendaricApi {
         private var INSTANCE: CalendaricApi? = null
         private var token: String? = null
 
-        fun create(): CalendaricApi? {
+        fun instance(): CalendaricApi? {
             synchronized(this) {
                 val user = FirebaseAuth.getInstance().currentUser ?: return null
+
                 val result: GetTokenResult
                 try {
                     result = Tasks.await(user.getIdToken(false), 100000, TimeUnit.MILLISECONDS)
                 } catch (e: Exception) {
-                    Log.v("lol", "Firebase token exception: ${e.message}")
+                    Log.v(Constants.LOG_TAG, "Firebase token exception: ${e.message}")
                     return null
                 }
+
                 val tempInstance = INSTANCE
                 if (tempInstance != null && token == result.token) {
                     return tempInstance
                 }
-                token = result.token
-                Log.v("lol", "Got firebase token: $token")
-                if (token === null) return null
+
+                val tempToken = result.token ?: return null
+                Log.v(Constants.LOG_TAG, "Got firebase token: $tempToken")
 
                 val httpClient = OkHttpClient.Builder()
-
                 httpClient.addInterceptor { chain ->
-                    val request = chain.request().newBuilder().addHeader("X-Firebase-Auth", token).build()
+                    val request = chain.request().newBuilder().addHeader("X-Firebase-Auth", tempToken).build()
                     chain.proceed(request)
                 }
 
@@ -82,6 +81,7 @@ interface CalendaricApi {
 
                 val instance = retrofit.create(CalendaricApi::class.java)
 
+                token = tempToken
                 INSTANCE = instance
                 return instance
             }
