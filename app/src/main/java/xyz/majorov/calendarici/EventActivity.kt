@@ -1,4 +1,4 @@
-package xyz.majorov.calendaric
+package xyz.majorov.calendarici
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -67,9 +67,7 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
             R.array.recur_array,
             android.R.layout.simple_spinner_item
         ).also { adapter ->
-            // Specify the layout to use when the list of choices appears
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            // Apply the adapter to the spinner
             spinnerRecur.adapter = adapter
         }
         spinnerRecur.onItemSelectedListener = this
@@ -220,20 +218,15 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
         if (intent.action === ACTION_EDIT) menuInflater.inflate(R.menu.event, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
             R.id.action_delete -> {
                 AlertDialog.Builder(this@EventActivity)
-                    .setTitle("Deleting this event")
-                    .setMessage("Are you sure?")
+                    .setTitle("Are you sure?")
                     .setPositiveButton("Yes") { _, _ ->
                         event?.let { calendaricViewModel.deleteEvent(it) }
                         val replyIntent = Intent()

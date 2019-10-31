@@ -1,4 +1,4 @@
-package xyz.majorov.calendaric
+package xyz.majorov.calendarici
 
 import android.content.Context
 import android.view.LayoutInflater

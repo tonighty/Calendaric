@@ -1,4 +1,4 @@
-package xyz.majorov.calendaric
+package xyz.majorov.calendarici
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel

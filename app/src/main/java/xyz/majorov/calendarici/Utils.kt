@@ -1,4 +1,4 @@
-package xyz.majorov.calendaric
+package xyz.majorov.calendarici
 
 import org.dmfs.rfc5545.DateTime
 import org.threeten.bp.LocalDate
@@ -32,4 +32,3 @@ fun fromTimestamp(value: Long?): LocalDateTime? {
         LocalDateTime.ofEpochSecond(it / 1000, (it % 1000).toInt(), ZoneOffset.UTC)
     }
 }
-

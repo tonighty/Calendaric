@@ -1,4 +1,4 @@
-package xyz.majorov.calendaric
+package xyz.majorov.calendarici
 
 import android.app.Activity
 import android.content.Context
@@ -116,7 +116,6 @@ class MainActivity : AppCompatActivity(),
         calendaricViewModel = ViewModelProvider(this).get(CalendaricViewModel::class.java)
 
         calendaricViewModel.allEvents.observe(this, Observer { events ->
-            // Update the cached copy of the words in the adapter.
             events?.let { it ->
                 val oldDays = daysWithEvents.toSet()
                 daysWithEvents.clear()
@@ -192,10 +191,8 @@ class MainActivity : AppCompatActivity(),
         }
 
         calendarView.dayBinder = object : DayBinder<DayViewContainer> {
-            // Called only when a new container is needed.
             override fun create(view: View) = DayViewContainer(view)
 
-            // Called every time we need to reuse a container.
             override fun bind(container: DayViewContainer, day: CalendarDay) {
                 container.day = day
 
@@ -237,10 +234,6 @@ class MainActivity : AppCompatActivity(),
             if (calendarView.maxRowCount == 6) {
                 toolbar.title = titleDateFormatter.format(it.yearMonth)
             } else {
-                // In week mode, we show the header a bit differently.
-                // We show indices with dates from different months since
-                // dates overflow and cells in one index can belong to different
-                // months/years.
                 val firstDate = it.weekDays.first().first().date
                 val lastDate = it.weekDays.last().last().date
                 if (firstDate.yearMonth == lastDate.yearMonth) {
@@ -337,15 +330,11 @@ class MainActivity : AppCompatActivity(),
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.main, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
             R.id.action_settings -> true
             else -> super.onOptionsItemSelected(item)
@@ -419,10 +408,7 @@ class MainActivity : AppCompatActivity(),
                 Toast.LENGTH_LONG
             ).show()
         } else if (requestCode == RC_SIGN_IN) {
-//            val response = IdpResponse.fromResultIntent(data)
-
             if (resultCode == Activity.RESULT_OK) {
-                // Successfully signed in
                 setDataForUser()
             } else {
                 setDrawerMenuAuth(false)

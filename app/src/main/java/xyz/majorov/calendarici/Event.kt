@@ -1,4 +1,4 @@
-package xyz.majorov.calendaric
+package xyz.majorov.calendarici
 
 import androidx.lifecycle.LiveData
 import androidx.room.*
