@@ -9,8 +9,7 @@ import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.view.View.INVISIBLE
-import android.view.View.VISIBLE
+import android.view.View.*
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.ColorRes
@@ -152,7 +151,7 @@ class MainActivity : AppCompatActivity(),
                         val rule = RecurrenceRule(event.rrule)
                         val ruleStart = localDateToDateTime(if (start < monthAgo) monthAgo else start)
                         val ruleIterator = rule.iterator(ruleStart)
-                        var maxInstances = 50
+                        var maxInstances = 500
 
                         while (ruleIterator.hasNext() && (!rule.isInfinite || maxInstances-- > 0)) {
                             val localStart = dateTimeToLocalDate(ruleIterator.nextDateTime())
@@ -279,7 +278,6 @@ class MainActivity : AppCompatActivity(),
                 it.get(Calendar.MONTH) + 1,
                 it.get(Calendar.DAY_OF_MONTH)
             )
-            weekView.goToDate(it)
         }
         weekView.setMonthChangeListener { newYear, newMonth ->
             getEventInstances(newYear, newMonth)
@@ -390,13 +388,13 @@ class MainActivity : AppCompatActivity(),
                 )
             } else {
                 calendarView.scrollToDate(selectedDate)
-                toolbar.title = titleDateFormatter.format(selectedDate.yearMonth)
             }
+            toolbar.title = titleDateFormatter.format(selectedDate.yearMonth)
         } else {
             calendarView.visibility = INVISIBLE
             eventRecyclerView.visibility = INVISIBLE
             currentDayView.visibility = INVISIBLE
-            calendarDayLegend.visibility = INVISIBLE
+            calendarDayLegend.visibility = GONE
             weekView.visibility = VISIBLE
 
             weekView.goToDate(Calendar.getInstance().apply {
