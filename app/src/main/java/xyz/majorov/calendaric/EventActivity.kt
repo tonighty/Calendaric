@@ -172,14 +172,14 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                 var rule = RecurrenceRule(freq).apply { interval = 1 }.toString()
                 when (freq) {
                     RecurrenceRule.Freq.MONTHLY -> {
-                        rule = "$rule;BYMONTHDAY:${startedAt.dayOfMonth}"
+                        rule = "$rule;BYMONTHDAY=${startedAt.dayOfMonth}"
                     }
                     RecurrenceRule.Freq.YEARLY -> {
-                        rule = "$rule;BYMONTH:${startedAt.monthValue}"
-                        rule = "$rule;BYMONTHDAY:${startedAt.dayOfMonth}"
+                        rule = "$rule;BYMONTH=${startedAt.monthValue}"
+                        rule = "$rule;BYMONTHDAY=${startedAt.dayOfMonth}"
                     }
                     RecurrenceRule.Freq.WEEKLY -> {
-                        rule = "$rule;BYDAY:${days[startedAt.dayOfWeek.value - 1]}"
+                        rule = "$rule;BYDAY=${days[startedAt.dayOfWeek.value - 1]}"
                     }
                     else -> {}
                 }
