@@ -141,7 +141,7 @@ class PatternRequestApiModel(
     val duration: Long?
 ) {
     constructor(event: Event) : this(
-        dateToTimestamp(event.endedAt),
+        dateToTimestamp(LocalDateTime.now().plusYears(10)),
         dateToTimestamp(event.startedAt),
         event.rrule ?: "",
         "UTC",
