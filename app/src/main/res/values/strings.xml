@@ -40,5 +40,6 @@
         <item>Every week</item>
         <item>Every month</item>
         <item>Every year</item>
+        <item>Custom rule</item>
     </string-array>
 </resources>

@@ -10,8 +10,7 @@ import android.text.TextUtils
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.view.View.INVISIBLE
-import android.view.View.VISIBLE
+import android.view.View.*
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
@@ -30,6 +29,7 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
     private var event: Event? = null
     private var freq: RecurrenceRule.Freq? = null
     private val days = listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU")
+    private val initialRule = ""
 
     private var startedAt = LocalDateTime.now()
         set(value) {
@@ -86,15 +86,19 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                         statusText.setText(it.status)
                         startedAt = it.startedAt
                         endedAt = it.endedAt
-                        if (it.rrule !== null && it.rrule != "FREQ=DAILY;INTERVAL=1;COUNT=1")
-                            when (RecurrenceRule(it.rrule).freq) {
-                                RecurrenceRule.Freq.DAILY -> spinnerRecur.setSelection(1)
-                                RecurrenceRule.Freq.WEEKLY -> spinnerRecur.setSelection(2)
-                                RecurrenceRule.Freq.MONTHLY -> spinnerRecur.setSelection(3)
-                                RecurrenceRule.Freq.YEARLY -> spinnerRecur.setSelection(4)
-                                else -> spinnerRecur.setSelection(0)
+                        if (it.rrule !== null && it.rrule != "FREQ=DAILY;INTERVAL=1;COUNT=1") {
+                            val recur = RecurrenceRule(it.rrule)
+                            if (recur.interval == 1 && recur.count === null)
+                                when (recur.freq) {
+                                    RecurrenceRule.Freq.DAILY -> spinnerRecur.setSelection(1)
+                                    RecurrenceRule.Freq.WEEKLY -> spinnerRecur.setSelection(2)
+                                    RecurrenceRule.Freq.MONTHLY -> spinnerRecur.setSelection(3)
+                                    RecurrenceRule.Freq.YEARLY -> spinnerRecur.setSelection(4)
+                                    else -> spinnerRecur.setSelection(0)
+                            } else {
+                                spinnerRecur.setSelection(5)
                             }
-                        else spinnerRecur.setSelection(0)
+                        } else spinnerRecur.setSelection(0)
 
                         if (it.startedAt?.hour == 0 && it.startedAt?.minute == 0 &&
                             it.endedAt?.hour == 23 && it.endedAt?.minute == 59
@@ -103,6 +107,7 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                 })
         } else if (intent.action == ACTION_CREATE) {
             this.title = getString(R.string.create_event)
+            spinnerRecur.getChildAt(5).visibility = GONE
             val day = intent.getLongExtra(MainActivity.EXTRA_SELECTED_DATE, -1)
             if (day != -1L) {
                 startedAt = fromTimestamp(day)?.plusHours(12)
@@ -205,7 +210,8 @@ class EventActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
                         it.status = statusText.text.toString()
                         it.startedAt = startedAt
                         it.endedAt = endedAt
-                        it.rrule = if (freq !== null) rule else "FREQ=DAILY;INTERVAL=1;COUNT=1"
+                        if (it.rrule.isNullOrBlank() || spinnerRecur.selectedItemPosition != 5)
+                            it.rrule = if (freq !== null) rule else "FREQ=DAILY;INTERVAL=1;COUNT=1"
                         calendaricViewModel.updateEvent(it)
                     }
                 }
