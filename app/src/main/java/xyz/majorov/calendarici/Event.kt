@@ -70,6 +70,9 @@ interface EventDao {
     @Query("DELETE FROM event")
     fun deleteAll()
 
+    @Query("SELECT * FROM event WHERE id NOT IN (:ids)")
+    fun getExcludeIds(ids: List<Long>) : List<Event>
+
     @Update
     suspend fun update(vararg event: Event)
 

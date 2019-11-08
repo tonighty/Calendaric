@@ -464,7 +464,7 @@ class MainActivity : AppCompatActivity(),
         }.map {
             val start = it.startedAt!!
             val end = it.endedAt!!
-            return@map WeekViewEvent(
+            WeekViewEvent(
                 it.primaryKey,
                 it.name,
                 start.year,

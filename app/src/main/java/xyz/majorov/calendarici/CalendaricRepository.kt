@@ -47,6 +47,11 @@ class CalendaricRepository(private val taskDao: TaskDao, private val eventDao: E
     @WorkerThread
     suspend fun syncEvents() {
         CalendaricApi.instance()?.let { api ->
+
+            for (event in eventDao.getNotSynced()) {
+                createEventWeb(event)
+            }
+
             val eventsResponse = api.listEvents().execute()
             val eventsBody = eventsResponse.body() ?: return
             if (eventsResponse.code() != 200) return
@@ -69,8 +74,8 @@ class CalendaricRepository(private val taskDao: TaskDao, private val eventDao: E
                 if (event.primaryKey == 0L) eventDao.insert(event) else eventDao.update(event)
             }
 
-            for (event in eventDao.getNotSynced()) {
-                createEventWeb(event)
+            for (event in eventDao.getExcludeIds(eventsBody.data.map { it.id })) {
+                eventDao.deleteEvents(event)
             }
         }
     }
